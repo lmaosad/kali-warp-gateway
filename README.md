@@ -2,7 +2,7 @@
 
 Give your old hardware a powerful second life! This project demonstrates how to upcycle **any old PC, laptop, mini-PC, or Raspberry Pi** into a dedicated, hardware-level **Security & VPN Gateway** using **Kali Linux** and **Cloudflare WARP**.
 
-By placing this gateway machine between your main work/gaming PC and the internet, all outbound network traffic gets transparently routed, encrypted, and protected via Cloudflare WARP with zero performance-robbing routing loops or packet drops.
+By placing this gateway machine between your main work/gaming PC (or entire home subnet) and the internet, all outbound network traffic gets transparently routed, encrypted, and protected via Cloudflare WARP with zero performance-robbing routing loops or packet drops.
 
 ---
 
@@ -27,27 +27,35 @@ While any Linux distribution (like Ubuntu or Debian) can technically forward pac
 ##  Network Architecture
 
 ```text
-[ Main Desktop PC ]  --->  (Direct Ethernet Cable)  --->  [ Gateway (Old PC/Laptop) ]  --->  (Wi-Fi / wlan1 + WARP)  --->  [ Internet ]
-   10.42.0.28                                                    10.42.0.1
+[ Main PC 1 ] ----\
+[ Main PC 2 ] ----->  [ (Optional) Old Router as Switch ] ---> (Ethernet) ---> [ Gateway (Kali PC) ] ---> (Wi-Fi + WARP) ---> [ Internet ]
+[ Smart TV  ] ----/         (DHCP Disabled)                                        10.42.0.1
 ```
 
 ---
 
 ##  What to Install on the Gateway Machine
 
-On your Kali Linux machine, open a terminal and run:
+> [!IMPORTANT]
+> **Cloudflare Repository Setup Notice:** Kali Linux (and Debian-based OSes) do not include Cloudflare WARP in standard default repositories. You **must add the Cloudflare GPG key and APT repository list** before running `apt install cloudflare-warp`, otherwise APT will fail to locate the package.
+
+Open a terminal on your Kali Linux gateway machine and run the following commands:
 
 ```bash
-# 1. Update package lists
+# 1. Update system packages and install prerequisites
+sudo apt update && sudo apt install curl gnupg lsb-release iptables net-tools -y
+
+# 2. Add Cloudflare GPG key to trusted keyrings
+curl -fsSL [https://pkg.cloudflareclient.com/pubkey.gpg](https://pkg.cloudflareclient.com/pubkey.gpg) | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+
+# 3. Add the Cloudflare repository to APT package sources list
+echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] [https://pkg.cloudflareclient.com/](https://pkg.cloudflareclient.com/) $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+
+# 4. Refresh package lists and install Cloudflare WARP
 sudo apt update
-
-# 2. Install iptables and network utilities
-sudo apt install iptables net-tools curl -y
-
-# 3. Install Cloudflare WARP Client
 sudo apt install cloudflare-warp -y
 
-# 4. Register Cloudflare WARP
+# 5. Register Cloudflare WARP Client
 warp-cli registration new
 ```
 
@@ -113,6 +121,21 @@ warp-cli connect
 
 ---
 
+##  Bonus: Connect Multiple Devices using an Old Spare Router as a Switch
+
+If you have an extra Wi-Fi router lying around unused, you can turn it into an unmanaged network switch / secondary access point to route **multiple devices** (PCs, consoles, TVs, phones) through your Kali WARP Gateway!
+
+### How to configure the spare router:
+1. **Log into the Spare Router's Admin Panel:** Connect to the old router and access its settings (usually `192.168.1.1` or `192.168.0.1`).
+2. **Disable the DHCP Server:** Turn off the DHCP Server in the router settings. This prevents the spare router from handing out conflicting IP addresses.
+3. **Change Router IP (Optional):** Set the router's local management IP to `10.42.0.2` so it sits safely inside your Kali gateway's subnet.
+4. **Physical Cabling:**
+   * Plug an Ethernet cable from the **Kali Gateway Ethernet Port** into **LAN Port 1** on the spare router (*Do NOT use the WAN/Internet port*).
+   * Plug your Main Desktop, Gaming Console, or other PCs into **LAN Ports 2, 3, and 4**.
+   * *(Optional)* Leave Wi-Fi enabled on the spare router if you want encrypted WARP Wi-Fi for mobile devices!
+
+---
+
 ##  How People Can Improve This Setup
 
 If you want to take this project further, here are the best upgrades:
@@ -130,12 +153,22 @@ If you want to take this project further, here are the best upgrades:
 
 ##  Automated Setup Script (`setup-gateway.sh`)
 
-Save this script on your Kali machine to apply all rules in one command:
+Save this script on your Kali machine to apply all rules and repo additions in one command:
 
 ```bash
 #!/bin/bash
 ETH_IF="eth0"
 WIFI_IF="wlan1" # Change to your active WAN interface
+
+echo "[+] Checking Cloudflare WARP Repository..."
+if ! command -v warp-cli &> /dev/null; then
+    echo "[+] Adding Cloudflare GPG key and APT repository..."
+    sudo apt update && sudo apt install curl gnupg lsb-release -y
+    curl -fsSL [https://pkg.cloudflareclient.com/pubkey.gpg](https://pkg.cloudflareclient.com/pubkey.gpg) | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+    echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] [https://pkg.cloudflareclient.com/](https://pkg.cloudflareclient.com/) $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+    sudo apt update && sudo apt install cloudflare-warp -y
+    warp-cli registration new
+fi
 
 echo "[+] Enabling Kernel Packet Forwarding..."
 sudo sysctl -w net.ipv4.ip_forward=1 > /dev/null
@@ -153,5 +186,8 @@ sudo iptables -A FORWARD -i ${ETH_IF} -o ${WIFI_IF} -j ACCEPT
 sudo iptables -A FORWARD -i ${WIFI_IF} -o ${ETH_IF} -m state --state RELATED,ESTABLISHED -j ACCEPT
 sudo iptables -t nat -A POSTROUTING -o ${WIFI_IF} -j MASQUERADE
 
-echo "[+] Hardware Gateway rules active! Connect WARP with 'warp-cli connect'."
+echo "[+] Connecting to Cloudflare WARP..."
+warp-cli connect
+
+echo "[+] Hardware Gateway rules active & WARP connected!"
 ```
