@@ -192,3 +192,174 @@ warp-cli connect
 
 echo "[+] Hardware Gateway rules active & WARP connected!"
 ```
+
+
+# !!GREEK TRANSLATION IF YOU DO NOT UNDERSTAND JUST IGNORE!!
+
+#  Μετατρέψτε οποιοδήποτε παλιό PC ή Laptop σε Κρυπτογραφημένο Hardware WARP Gateway
+# Τα αρχεία εγκατάστασης για τις συσκευές θα περιλαμβάνονται στα παραπάνω αρχεία αν θέλετε να δοκιμάσετε το Cloudflare One ή το Cloudflare WARP. Απλώς εγκαταστήστε το html και ανοίξτε το / κάντε διπλό κλικ σε αυτό.
+Δώστε στο παλιό σας υλικό μια ισχυρή δεύτερη ευκαιρία! Αυτό το project δείχνει πώς να αναβαθμίσετε **οποιοδήποτε παλιό PC, laptop, mini-PC ή Raspberry Pi** σε ένα εξειδικευμένο **Security & VPN Gateway** σε επίπεδο υλικού (hardware), χρησιμοποιώντας **Kali Linux** και **Cloudflare WARP**.
+
+Τοποθετώντας αυτό το μηχάνημα-gateway ανάμεσα στον κύριο υπολογιστή σας (για εργασία/gaming) και το διαδίκτυο, όλη η εξερχόμενη κίνηση του δικτύου δρομολογείται διαφανώς, κρυπτογραφείται και προστατεύεται μέσω του Cloudflare WARP, χωρίς βρόχους δρομολόγησης (routing loops) ή απώλειες πακέτων που ρίχνουν την απόδοση.
+
+---
+
+##  Πώς μου ήρθε αυτή η ιδέα
+
+Ήθελα έναν τρόπο να χρησιμοποιώ την κρυπτογράφηση του Cloudflare WARP στον κύριο υπολογιστή μου χωρίς να χρειάζεται να διατηρώ εικονικούς προσαρμογείς δικτύου (virtual network adapters), daemons του VPN να τρέχουν στο υπόβαθρο, ή αυστηρές εφαρμογές firewall που επιβαρύνουν το κύριο λειτουργικό μου σύστημα. 
+
+Κατάλαβα ότι είχα περίσσευμα υλικού. Αντί να αγοράσω ένα ακριβό φυσικό router, συνέδεσα ένα καλώδιο Ethernet απευθείας από το κύριο PC μου σε ένα παλιό μηχάνημα που έτρεχε Kali Linux. Μετατρέποντας εκείνη τη δεύτερη συσκευή σε εξειδικευμένο router/NAT bridge, το κύριο PC μου αποκτά πλήρη κρυπτογραφημένη πρόσβαση στο διαδίκτυο χωρίς καμία επιβάρυνση στην επεξεργαστική ισχύ (CPU) ή παρεμβολή λογισμικού!
+
+---
+
+##  Γιατί Kali Linux για αυτή τη συγκεκριμένη υλοποίηση;
+
+Αν και οποιαδήποτε διανομή Linux (όπως Ubuntu ή Debian) μπορεί τεχνικά να κάνει προώθηση πακέτων (packet forwarding), το **Kali Linux είναι μοναδικά κατάλληλο** γι' αυτή τη ρύθμιση απευθείας από την εγκατάσταση:
+
+1. **Ενσωματωμένα Εργαλεία Δικτύωσης & Δρομολόγησης:** Το Kali διαθέτει προεγκατεστημένα πλήρη `iptables`, `nftables`, `net-tools` και προηγμένα πακέτα drivers.
+2. **Εύκολη Διαχείριση Headless & Hotspot:** Το `NetworkManager` stack του Kali κάνει τη ρύθμιση της γεφυρωμένης σύνδεσης (`10.42.0.x`) αυτόματη μόλις συνδεθεί ένα καλώδιο Ethernet.
+3. **Έτοιμο για Έλεγχο Ασφαλείας:** Ένα εξειδικευμένο Kali gateway σάς επιτρέπει να επιθεωρείτε, να παρακολουθείτε ή να καταγράφετε εύκολα την κίνηση του δικτύου (`Wireshark`, `tcpdump`) που διέρχεται από το κύριο PC σας στο επίπεδο του υλικού, πριν φτάσει στο διαδίκτυο.
+
+---
+
+##  Αρχιτεκτονική Δικτύου
+
+```text
+[ Κύριο PC 1 ] ----\
+[ Κύριο PC 2 ] ----->  [ (Προαιρετικά) Παλιό Router ως Switch ] ---> (Ethernet) ---> [ Gateway (Kali PC) ] ---> (Wi-Fi + WARP) ---> [ Διαδίκτυο ]
+[ Smart TV   ] ----/            (DHCP Απενεργοποιημένο)                                 10.42.0.1
+```
+
+---
+
+##  Τι να εγκαταστήσετε στο μηχάνημα Gateway
+
+> [!IMPORTANT]
+> **Ειδοποίηση Ρύθμισης Cloudflare Repository:** Το Kali Linux (και τα συστήματα βασισμένα στο Debian) δεν περιλαμβάνουν το Cloudflare WARP στα προεπιλεγμένα αποθετήρια. **Πρέπει να προσθέσετε το GPG key και τη λίστα αποθετηρίων APT της Cloudflare** πριν εκτελέσετε την εντολή `apt install cloudflare-warp`, διαφορετικά το APT δεν θα μπορέσει να βρει το πακέτο.
+
+Ανοίξτε ένα τερματικό στο Kali Linux gateway μηχάνημά σας και εκτελέστε τις ακόλουθες εντολές:
+
+```bash
+# 1. Ενημέρωση πακέτων συστήματος και εγκατάσταση προαπαιτούμενων
+sudo apt update && sudo apt install curl gnupg lsb-release iptables net-tools -y
+
+# 2. Προσθήκη του Cloudflare GPG key στα εμπιστευτικά keyrings
+curl -fsSL [https://pkg.cloudflareclient.com/pubkey.gpg](https://pkg.cloudflareclient.com/pubkey.gpg) | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare-warp-archive-keyring.gpg
+
+# 3. Προσθήκη του αποθετηρίου της Cloudflare στη λίστα πηγών APT
+echo "deb [signed-by=/usr/share/keyrings/cloudflare-warp-archive-keyring.gpg] [https://pkg.cloudflareclient.com/](https://pkg.cloudflareclient.com/) $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/cloudflare-client.list
+
+# 4. Ανανέωση των λιστών πακέτων και εγκατάσταση του Cloudflare WARP
+sudo apt update
+sudo apt install cloudflare-warp -y
+
+# 5. Εγγραφή/Σύνδεση του Cloudflare WARP Client
+warp-cli registration new
+```
+
+---
+
+##  Βήμα προς Βήμα Εντολές & Τεχνική Ανάλυση
+
+Όταν συνδέετε έναν client στο WARP μέσω τοπικής γέφυρας, το τυπικό masquerading δημιουργεί **βρόχους δρομολόγησης (routing loops)** και **απώλειες πακέτων** (συχνά αποσυνδέεται μετά από 10 δευτερόλεπτα). 
+
+Εδώ είναι κάθε ακριβής εντολή που εκτελέστηκε για τη διόρθωση της ρύθμισης και ο λόγος για τον οποίο χρησιμοποιήθηκε:
+
+### 1. Ενεργοποίηση Forwarding Πακέτων στον Πυρήνα (Kernel Packet Forwarding)
+Επιτρέπει στον πυρήνα Linux να λειτουργεί ως router και να προωθεί τα εισερχόμενα πακέτα από το Ethernet προς το Wi-Fi.
+```bash
+sudo sysctl -w net.ipv4.ip_forward=1
+```
+
+### 2. Απενεργοποίηση Reverse Path Filtering (`rp_filter`)
+*Κρίσιμη διόρθωση!* Το Cloudflare WARP τροποποιεί τους κανόνες δρομολόγησης των interfaces. Αν το Reverse Path Filtering είναι ενεργοποιημένο, ο πυρήνας θεωρεί ότι τα προωθούμενα πακέτα είναι πλαστογραφημένα (spoofed) και τα απορρίπτει αμέσως.
+```bash
+sudo sysctl -w net.ipv4.conf.all.rp_filter=0
+sudo sysctl -w net.ipv4.conf.eth0.rp_filter=0
+sudo sysctl -w net.ipv4.conf.wlan1.rp_filter=0
+```
+
+### 3. Εκκαθάριση Περιοριστικών Κανόνων Firewall
+Καθαρίζει τους υπάρχοντες περιορισμούς του firewall για την αποφυγή μπλοκαρίσματος πολιτικής:
+```bash
+sudo iptables -F FORWARD
+sudo iptables -t nat -F
+```
+
+### 4. Περιορισμός TCP MSS (Διορθώνει τον Τεμαχισμό Πακέτων & τις Χαμηλές Ταχύτητες)
+Το WARP προσθέτει επικεφαλίδες κρυπτογράφησης σε κάθε πακέτο, προκαλώντας τεμαχισμό (fragmentation) στα τυπικά πακέτα 1500 bytes, γεγονός που μειώνει δραστικά την ταχύτητα λήψης. Ο περιορισμός του μεγέθους TCP MSS στα `1360` bytes εξασφαλίζει τη μέγιστη ταχύτητα δικτύου χωρίς απώλεια πακέτων.
+```bash
+sudo iptables -A FORWARD -p tcp --tcp-flags SYN,RST SYN -j TCPMSS --set-mss 1360
+```
+
+### 5. Ρύθμιση Αυστηρού Interface NAT (Αποτρέπει Κρασαρίσματα των 10 Δευτερολέπτων)
+Περιορίζει το NAT masquerading *αυστηρά* στον προσαρμογέα Wi-Fi (`wlan1`). Αυτό αποτρέπει το WARP από το να κάνει επαναδρομολόγηση πακέτων πίσω στο Ethernet, κάτι που θα κρασάριζε το tunnel.
+```bash
+sudo iptables -A FORWARD -i eth0 -o wlan1 -j ACCEPT
+sudo iptables -A FORWARD -i wlan1 -o eth0 -m state --state RELATED,ESTABLISHED -j ACCEPT
+sudo iptables -t nat -A POSTROUTING -o wlan1 -j MASQUERADE
+```
+
+### 6. Σύνδεση στο WARP
+```bash
+warp-cli connect
+```
+
+---
+
+##  Ρύθμιση Κύριου PC (Client)
+
+1. Συνδέστε ένα καλώδιο Ethernet μεταξύ του κύριου PC σας και του μηχανήματος Gateway.
+2. Ρυθμίστε τις ιδιότητες IPv4 του Ethernet στο κύριο PC σας:
+   * **IP Address:** `10.42.0.28` (ή ρυθμίστε τον προσαρμογέα σε DHCP)
+   * **Subnet Mask:** `255.255.255.0`
+   * **Default Gateway:** `10.42.0.1` (Η Ethernet IP του Kali)
+   * **Preferred DNS:** `1.1.1.1`
+   * **Alternate DNS:** `8.8.8.8`
+
+---
+
+##  Bonus: Σύνδεση Πολλαπλών Συσκευών Χρησιμοποιώντας ένα Παλιό Router ως Switch
+
+Αν έχετε ένα επιπλέον Wi-Fi router που δεν χρησιμοποιείτε, μπορείτε να το μετατρέψετε σε unmanaged network switch / δευτερεύον access point για να δρομολογείτε **πολλαπλές συσκευές** (PCs, κονσόλες, τηλεοράσεις, τηλέφωνα) μέσω του Kali WARP Gateway!
+
+### Πώς να ρυθμίσετε το παλιό router:
+1. **Συνδεθείτε στο Πάνελ Διαχείρισης του Router:** Συνδεθείτε στο παλιό router και αποκτήστε πρόσβαση στις ρυθμίσεις του (συνήθως `192.168.1.1` ή `192.168.0.1`).
+2. **Απενεργοποιήστε τον DHCP Server:** Απενεργοποιήστε τον διακομιστή DHCP στις ρυθμίσεις του router. Αυτό αποτρέπει το router από το να μοιράζει συγκρουόμενες διευθύνσεις IP.
+3. **Αλλάξτε την IP του Router (Προαιρετικά):** Ορίστε την τοπική IP διαχείρισης του router σε `10.42.0.2` ώστε να βρίσκεται με ασφάλεια εντός του subnet του Kali gateway.
+4. **Φυσική Καλωδίωση:**
+   * Συνδέστε ένα καλώδιο Ethernet από τη **Θύρα Ethernet του Kali Gateway** στη **Θύρα LAN 1** του παλιού router (*ΜΗΝ χρησιμοποιήσετε τη θύρα WAN/Internet*).
+   * Συνδέστε το Κύριο Desktop, την Κονσόλα Gaming ή άλλα PCs στις **Θύρες LAN 2, 3 και 4**.
+   * *(Προαιρετικά)* Αφήστε το Wi-Fi ενεργοποιημένο στο παλιό router αν θέλετε κρυπτογραφημένο Wi-Fi μέσω WARP για φορητές συσκευές!
+
+---
+
+##  Πώς Μπορεί ο Κόσμος να Βελτιώσει Αυτή τη Συνδεσμολογία
+
+Αν θέλετε να πάτε αυτό το project ένα βήμα παραπέρα, ορίστε οι καλύτερες αναβαθμίσεις:
+
+1. **Χρήση Προσαρμογέα USB 3.0 σε Ethernet (Dual Ethernet Gateway):**
+   * Αντί να λαμβάνετε ίντερνετ μέσω Wi-Fi, συνδέστε έναν δεύτερο προσαρμογέα Ethernet στο παλιό PC. Η διακίνηση της κίνησης `Ethernet -> Ethernet` εξαλείφει την καθυστέρηση (latency) του ασύρματου δικτύου και ξεκλειδώνει ταχύτητες Gigabit.
+2. **Αναβάθμιση σε 5GHz / Wi-Fi 6 USB Dongle:**
+   * Τα ενσωματωμένα Wi-Fi chips σε παλαιότερα laptops/PCs είναι συχνά περιορισμένα στα 2.4GHz (~10-15 Mbps). Η σύνδεση ενός USB Wi-Fi adapter 5GHz αξίας $10–$15 (`wlan1`) ανεβάζει αμέσως τις ταχύτητες πάνω από 100+ Mbps.
+3. **Αυτοματοποίηση κατά την Εκκίνηση (`systemd` / `cron`):**
+   * Προσθέστε το script των iptables στην εκκίνηση του συστήματος (στο `/etc/rc.local` ή ως υπηρεσία `systemd`), ώστε το hardware VPN σας να ενεργοποιείται αυτόματα όποτε ανοίγετε το παλιό μηχάνημα.
+4. **Χρήση Οποιουδήποτε Παλιού Υλικού:**
+   * Αυτή η ρύθμιση δεν περιορίζεται σε laptops! Παλιά desktop towers, Intel NUCs, mini PCs ή Raspberry Pi αποτελούν εξαιρετικά, αθόρυβα hardware gateways.
+
+---
+
+##  Αυτοματοποιημένο Σκριπτ Εγκατάστασης (`setup-gateway.sh`)
+
+Αποθηκεύστε αυτό το script στο Kali μηχάνημά σας για να εφαρμόσετε όλους τους κανόνες και τις προσθήκες αποθετηρίων με μία μόνο εντολή:
+
+```bash
+#!/bin/bash
+ETH_IF="eth0"
+WIFI_IF="wlan1" # Αλλάξτε το στη δική σας ενεργή διεπαφή WAN
+
+echo "[+] Έλεγχος Αποθετηρίου Cloudflare WARP..."
+if ! command -v warp-cli &> /dev/null; then
+    echo "[+] Προσθήκη GPG key και αποθετηρίου APT της Cloudflare..."
+    sudo apt update && sudo apt install curl gnupg lsb-release -y
+    curl -fsSL [https://pkg.cloudflareclient.com/pubkey.gpg](https://pkg.cloudflareclient.com/pubkey.gpg) | sudo gpg --yes --dearmor --output /usr/share/keyrings/cloudflare
