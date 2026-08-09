@@ -1,5 +1,6 @@
 #  Turn Any Old PC or Laptop into an Encrypted Hardware WARP Gateway
-
+## Installtion files for devices will be included in the files above if you want to try out cloudflare one or cloudflare warp.
+---
 Give your old hardware a powerful second life! This project demonstrates how to upcycle **any old PC, laptop, mini-PC, or Raspberry Pi** into a dedicated, hardware-level **Security & VPN Gateway** using **Kali Linux** and **Cloudflare WARP**.
 
 By placing this gateway machine between your main work/gaming PC (or entire home subnet) and the internet, all outbound network traffic gets transparently routed, encrypted, and protected via Cloudflare WARP with zero performance-robbing routing loops or packet drops.
